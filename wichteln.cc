@@ -44,31 +44,33 @@ bool parseInput(int argc, const char *argv[]) {
 
 	parser.addFinalArgument("fname");
 	parser.parse(argc, argv);
-
+	// Retrieve file name from cmdline
 	string fname = parser.retrieve<string>("fname");
 	string line;
-
+	// Open 'fname' for reading
 	ifstream ifs(fname, ifstream::in);
 	if (!ifs.is_open()) {
 		cerr << "Cannot open '" << fname << "' for reading!" << endl;
 		return false;
 	}
+	// Read content line by line
 	while (getline(ifs, line)) {
 		stringstream ss(line);
 		vector<string> tokens;
 		string temp;
-
+		// Tokenize each line by comma
 		while (getline(ss, temp, ',')) {
 			tokens.push_back(temp);
 		}
+		// Do not expect more than two tokens!
 		if (tokens.size() != 2) {
 			cerr << "Argument contains to many tokens: " << line << endl;
 			continue;
 		}
-
+		// Create a new Wichtel for each line
 		inputWichtel.push_back(Wichtel());
 		Wichtel &newWichtel = inputWichtel.back();
-	
+		// Set a Wichtel's name and email to the values parsed above
 		newWichtel.setName(tokens[0]);
 		newWichtel.setEMail(tokens[1]);
 	}
