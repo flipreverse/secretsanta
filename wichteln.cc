@@ -54,7 +54,9 @@ static bool parseInput(set<Wichtel> &wichtel, int argc, const char *argv[]) {
 		return false;
 	}
 	// Read content line by line
+	int lineCounter = 0;
 	while (getline(ifs, line)) {
+		lineCounter++;
 		stringstream ss(line);
 		vector<string> tokens;
 		string temp;
@@ -69,7 +71,7 @@ static bool parseInput(set<Wichtel> &wichtel, int argc, const char *argv[]) {
 		}
 		pair<set<Wichtel>::iterator,bool> ret = wichtel.emplace(tokens[0], tokens[1]);
 		if (!ret.second) {
-			cerr << "Duplicate Wichtel found in input: " << line << endl;
+			cerr << "Duplicate Wichtel found at input line " << lineCounter << ": '" << line << "'" << endl;
 			continue;
 		}
 	}
