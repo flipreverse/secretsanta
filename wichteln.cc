@@ -3,57 +3,49 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <map>
 #include <cstdlib>
 #include <algorithm>
 #include <ctime>
 #include "argparse.hpp"
+#include "wichtel.h"
+
+#define CSV_DELIMITER ';'
+#define CONFLICT_DELIMITER ','
+#define MAX_RETRY 1000
 
 using namespace std;
 
-class Wichtel {
-private:
-	std::string name;
-	std::string email;
+set<Wichtel> wichtelSet;
+map<string,int> stats;
+bool *visited;
+bool **adjacent;
+bool benchmark = false;
+bool debug = false;
+int maxIter = 1;
 
-public:
-	Wichtel (void) {
-
-	}
-	Wichtel(std::string name, std::string email) {
-		this->name = name;
-		this->email = email;
-	}
-	std::string getName(void) const { return this->name; }
-	std::string getEMail(void) const { return this->email; }
-	void setName(std::string value) { this->name = value; }
-	void setEMail(std::string value) { this->email = value; }
-	std::string toString(void) const { return "Wichtel:\tName=" + this->getName() + ", E-Mail=" + this->getEMail(); }
-
-	bool operator==(const Wichtel &rhs) const {
-		return this->getName().compare(rhs.getName()) == 0;
-	}
-	bool operator!=(const Wichtel &rhs) const { return !(*this == rhs); }
-	bool operator<(const Wichtel &rhs) const {
-		return this->getName().compare(rhs.getName()) < 0;
-	}
-	/* "Relational Operators" - https://en.cppreference.com/w/cpp/language/operators */
-	bool operator>(const Wichtel &rhs)  const { return rhs < *this; }
-	bool operator<=(const Wichtel &rhs) const { return !(*this > rhs); }
-	bool operator>=(const Wichtel &rhs) const { return !(*this < rhs); }
-};
-
-std::ostream& operator<<(std::ostream &out, const Wichtel &wichtel) {
-	return out << wichtel.toString();
-}
-
-static bool parseInput(vector<Wichtel> &wichtel, int argc, const char *argv[]) {
+static bool parseInput(set<Wichtel> &wichtel, int argc, const char *argv[]) {
 	ArgumentParser parser;
-	set<Wichtel> uniqueWichtel;
+	int val;
 
+	parser.addArgument("--benchmark", 1);
+	parser.addArgument("--debug");
 	parser.addFinalArgument("fname");
 	parser.parse(argc, argv);
 	// Retrieve file name from cmdline
 	string fname = parser.retrieve<string>("fname");
+	if (parser.retrieve<string>("benchmark").size() > 0) {
+		val = std::stoi(parser.retrieve<string>("benchmark"));
+		if (val > 0) {
+			benchmark = true;
+			maxIter = val;
+		} else {
+			cerr << parser.usage() << endl;
+			exit(EXIT_FAILURE);
+		}
+	}
+	debug = parser.exists("debug");
+	
 	string line;
 	// Open 'fname' for reading
 	ifstream ifs(fname, ifstream::in);
@@ -67,57 +59,25 @@ static bool parseInput(vector<Wichtel> &wichtel, int argc, const char *argv[]) {
 		vector<string> tokens;
 		string temp;
 		// Tokenize each line by comma
-		while (getline(ss, temp, ',')) {
+		while (getline(ss, temp, CSV_DELIMITER)) {
 			tokens.push_back(temp);
 		}
 		// Do not expect more than two tokens!
-		if (tokens.size() != 2) {
+		if (tokens.size() < 2) {
 			cerr << "Argument contains to many tokens: " << line << endl;
 			continue;
 		}
-		auto ret = uniqueWichtel.emplace(tokens[0], tokens[1]);
+		pair<set<Wichtel>::iterator,bool> ret = wichtel.emplace(tokens[0], tokens[1]);
 		if (!ret.second) {
 			cerr << "Duplicate Wichtel found in input: " << line << endl;
-			continue;	
+			continue;
 		}
-#if 0
-		// Create a new Wichtel for each line
-		wichtel.push_back(Wichtel());
-		Wichtel &newWichtel = wichtel.back();
-		// Set a Wichtel's name and email to the values parsed above
-		newWichtel.setName(tokens[0]);
-		newWichtel.setEMail(tokens[1]);
-#endif
 	}
 
-	wichtel.assign(uniqueWichtel.begin(), uniqueWichtel.end());
 	return true;
 }
 
-static bool validSol(vector<Wichtel> &wichtel, vector<Wichtel> &sol) {
-	for (std::vector<Wichtel>::size_type i = 0; i < wichtel.size(); i++) {
-		if (wichtel[i] == sol[i]) {
-#ifdef DEBUG
-			cerr << "i=" << i << endl;
-#endif
-			return false;
-		}
-		for (std::vector<Wichtel>::size_type k = 0; k < wichtel.size(); k++) {
-			if (sol[i] == wichtel[k]) {
-				if (sol[k] == wichtel[i]) {
-#if 0
-					cout << "Detected circle. i=" << i << ", k=" << k << endl;
-#endif
-					return false;
-				}
-			}
-		}
-	}
-	return true;
-}
-
-static void printWichtel(std::string prefix, vector<Wichtel> wichtelVector) {
-	cout << prefix << endl;
+static void printWichtel(set<Wichtel> wichtelVector) {
 	cout << "----------" << endl;
 	for (auto & wichtel : wichtelVector) {
 		cout << wichtel << endl;
@@ -125,33 +85,124 @@ static void printWichtel(std::string prefix, vector<Wichtel> wichtelVector) {
 	cout << "----------" << endl;
 }
 
-static int myrandom(int i) { return std::rand() % i; }
+static bool calcSol(bool *visited, bool **adjacent, unsigned int size, vector<int> &path) {
+	int node, next_node, i = 0;
 
-static void calcSol(vector<Wichtel> &solWichtel) {
-	std::srand(unsigned(std::time(0)));
-	random_shuffle(solWichtel.begin(), solWichtel.end(), myrandom);
+	// Randomly choose a start node
+	node = std::rand() % size;
+	do {
+		// Randomly choose the next node
+		next_node = std::rand() % size;
+		// Have we already visited this node?
+		// Is there an edge between node and next_node?
+		if (!visited[next_node] && adjacent[node][next_node]) {
+			visited[next_node] = true;
+			path.push_back(next_node);
+			node = next_node;
+		} else {
+			i++;
+		}
+	} while (path.size() < size && i < MAX_RETRY);
+	if (i == MAX_RETRY) {
+		return false;
+	} else {
+		// Make it a full cycle
+		path.push_back(path.front());
+		return true;
+	}
 }
 
-vector<Wichtel> inputWichtel;
+static string pathToString(vector<int> &nodes) {
+	string ret = "";
+
+	for (unsigned int i = 0; i < nodes.size(); i++) {
+		ret.append(std::to_string(nodes[i]));
+		if (i < (nodes.size() - 1)) {
+			ret.append(",");
+		}
+	}
+
+	return ret;
+}
+
+static void printSol(set<Wichtel> &wichtelSet, vector<int> &path) {
+	vector<Wichtel> wichtelArr(wichtelSet.begin(), wichtelSet.end());
+
+	if (debug) {
+		cout << "Path: " << pathToString(path) << endl;
+	}
+	for (unsigned int i = 0; i < (path.size() - 1); i++) {
+		if (debug) {
+			cout << wichtelArr[path[i]].getName() << "(" << path[i] << ")";
+			cout << "-->";
+			cout  << wichtelArr[path[i + 1]].getName() << "(" << path[i + 1] << ")" << endl;
+		} else {
+			cout << wichtelArr[path[i]].getName() << "-->" << wichtelArr[path[i + 1]].getName() << endl;
+		}
+	}
+}
+
+static void reset(bool *visited, unsigned int size) {
+	for (unsigned int i = 0; i < size; i++) {
+		visited[i] = false;
+	}
+}
+
+static void initGraph(bool *visited, bool **adjacent, unsigned int size) {
+	for (unsigned int i = 0; i < size; i++) {
+		adjacent[i] = new bool[wichtelSet.size()];
+		for (unsigned int j = 0; j < size; j++) {
+			if (i == j) {
+				adjacent[i][j] = false;
+			} else {
+				adjacent[i][j] = true;
+			}
+		}
+	}
+	reset(visited, size);
+}
 
 int main(int argc, const char *argv[]) {
-	vector<Wichtel> solWichtel;
-	int n = 0;
+	vector<int> solWichtel;
 
-	if (!parseInput(inputWichtel, argc, argv)) {
+	if (!parseInput(wichtelSet, argc, argv)) {
 		return EXIT_FAILURE;
 	}
 
+	std::srand(unsigned(std::time(0)));
+	visited = new bool[wichtelSet.size()];
+	adjacent = new bool*[wichtelSet.size()];
+	initGraph(visited, adjacent, wichtelSet.size());
 
-	do {
-		solWichtel = inputWichtel;
-		calcSol(solWichtel);
-		n++;
-	} while(!validSol(inputWichtel, solWichtel));
-	cout << "Valid solution found in " << n << " iterations." << endl;
+	vector<int> path;
+	for (int i = 0; i < maxIter; i++) {
+		path.clear();;
+		reset(visited, wichtelSet.size());
+		if (!calcSol(visited, adjacent, wichtelSet.size(), path)) {
+			cerr << "Cannot find solution!" << endl;
+			return EXIT_FAILURE;
+		}
+		string pathString = pathToString(path);
+		if (benchmark) {
+			auto ret = stats.emplace(pathString, 0);
+			ret.first->second++;
+		}
+	}
 
-	printWichtel("input", inputWichtel);
-	printWichtel("sol", solWichtel);
+	if (benchmark) {
+		for (auto x : stats) {
+			cout << "[" << x.first << ":" << x.second << "]" << endl;
+		}
+	} else {
+		printWichtel(wichtelSet);
+		printSol(wichtelSet, path);
+	}
+
+	delete visited;
+	for (unsigned int i = 0; i < wichtelSet.size(); i++) {
+		delete adjacent[i];
+	}
+	delete adjacent;
 
 	return EXIT_SUCCESS;
 }
