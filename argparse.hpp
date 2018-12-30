@@ -42,7 +42,7 @@ typedef std::map<std::string, size_t> IndexMap;
 class ArgumentParser {
 private:
     class Any;
-    class Argument;
+    struct Argument;
     class PlaceHolder;
     class Holder;
     typedef std::string String;
@@ -301,6 +301,12 @@ public:
                                       .append(active_name),
                                   true);
                 active = arguments_[index_[el]];
+
+				// if the argument is optional and more arguments are not required
+				if (active.optional && nrequired == 0)
+				{
+					variables_[index_[el]].castTo<String>() = "true";
+				}
                 // check if we've satisfied the required arguments
                 if (active.optional && nrequired > 0)
                     argumentError(String("encountered optional argument ")
@@ -416,7 +422,17 @@ public:
         arguments_.clear();
         variables_.clear();
     }
-    bool exists(const String& name) const { return index_.count(delimit(name)) > 0; }
+	bool exists(const String& name) {
+		for (size_t i = 0; i < arguments_.size(); ++i)
+		{
+			// if the argument name is given and we have setted it to true in parse
+			if (arguments_[i].name == delimit(name) && variables_[i].castTo<String>() == "true")
+				return true;
+		}
+
+		return false;
+		/*return index_.count(delimit(name)) > 0;*/ 
+	}
     size_t count(const String& name) {
         // check if the name is an argument
         if (index_.count(delimit(name)) == 0) return 0;
