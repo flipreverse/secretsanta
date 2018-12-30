@@ -120,6 +120,11 @@ static bool calcSol(bool *visited, bool **adjacent, unsigned int size, vector<in
 		}
 	} while (path.size() < size && i < MAX_RETRY);
 	if (i == MAX_RETRY) {
+		// Fill the remaining gaps with dummy values (-1)
+		// Add one more because a full cycle contains #nodes+1 nodes
+		for (unsigned int j =  path.size(); j < (size + 1); j++) {
+			path.push_back(-1);
+		}
 		return false;
 	} else {
 		// Make it a full cycle
