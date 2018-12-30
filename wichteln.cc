@@ -190,7 +190,7 @@ static void initGraph(bool *visited, bool **adjacent, unsigned int size) {
 }
 
 int main(int argc, const char *argv[]) {
-	vector<int> solWichtel;
+	int failed = 0;
 
 	if (!parseInput(wichtelSet, argc, argv)) {
 		return EXIT_FAILURE;
@@ -204,10 +204,14 @@ int main(int argc, const char *argv[]) {
 	vector<int> path;
 	for (int i = 0; i < maxIter; i++) {
 		path.clear();;
-		reset(visited, wichtelSet.size());
-		if (!calcSol(visited, adjacent, wichtelSet.size(), path)) {
-			cerr << "Cannot find solution!" << endl;
-			return EXIT_FAILURE;
+		reset(visited, wichtelMap.size());
+		if (!calcSol(visited, adjacent, wichtelMap.size(), path)) {
+			if (!benchmark) {
+				cerr << "Cannot find solution!" << endl;
+				return EXIT_FAILURE;
+			} else {
+				failed++;
+			}
 		}
 		string pathString = pathToString(path);
 		if (benchmark) {
@@ -217,6 +221,7 @@ int main(int argc, const char *argv[]) {
 	}
 
 	if (benchmark) {
+		cout << failed << " out of " << maxIter << " runs failed." << endl;
 		for (auto x : stats) {
 			cout << "[" << x.first << ":" << x.second << "]" << endl;
 		}
