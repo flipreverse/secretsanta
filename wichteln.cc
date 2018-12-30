@@ -162,6 +162,31 @@ static void initGraph(bool *visited, bool **adjacent, unsigned int size) {
 		}
 	}
 	reset(visited, size);
+	if (debug) {
+		cout << "Adjacency matrix:" << endl;
+		cout << "  ";
+		for (unsigned int i = 0; i < size; i++) {
+			cout << i;
+			if (i < (size - 1)) {
+				cout << " ";
+			}
+		}
+		cout << endl;
+		for (unsigned int i = 0; i < (size * 2 + 2); i++) {
+			cout << "-";
+		}
+		cout << endl;
+		for (unsigned int i = 0; i < size; i++) {
+			cout << i << "|";
+			for (unsigned int j = 0; j < size; j++) {	
+				cout << adjacent[i][j];
+				if (j < (size - 1)) {
+					cout << " ";
+				}
+			}
+			cout << endl;
+		}	
+	}
 }
 
 int main(int argc, const char *argv[]) {
