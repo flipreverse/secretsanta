@@ -16,20 +16,23 @@
 
 using namespace std;
 
-set<Wichtel> wichtelSet;
+map<string,Wichtel> wichtelMap;
 map<string,int> stats;
 bool *visited;
 bool **adjacent;
 bool benchmark = false;
 bool debug = false;
+bool ignoreConflicts = false;
 int maxIter = 1;
+int IDs = 0;
 
-static bool parseInput(set<Wichtel> &wichtel, int argc, const char *argv[]) {
+static bool parseInput(map<string,Wichtel> &wichtel, int argc, const char *argv[], int &ids) {
 	ArgumentParser parser;
 	int val;
 
 	parser.addArgument("--benchmark", 1);
 	parser.addArgument("--debug");
+	parser.addArgument("--ignore-conflicts");
 	parser.addFinalArgument("fname");
 	parser.parse(argc, argv);
 	// Retrieve file name from cmdline
@@ -45,7 +48,8 @@ static bool parseInput(set<Wichtel> &wichtel, int argc, const char *argv[]) {
 		}
 	}
 	debug = parser.exists("debug");
-	
+	ignoreConflicts = parser.exists("ignore-conflicts");	
+
 	string line;
 	// Open 'fname' for reading
 	ifstream ifs(fname, ifstream::in);
@@ -64,25 +68,35 @@ static bool parseInput(set<Wichtel> &wichtel, int argc, const char *argv[]) {
 		while (getline(ss, temp, CSV_DELIMITER)) {
 			tokens.push_back(temp);
 		}
-		// Do not expect more than two tokens!
+		// Expecting two tokens at least!
 		if (tokens.size() < 2) {
 			cerr << "Argument contains to many tokens: " << line << endl;
 			continue;
 		}
-		pair<set<Wichtel>::iterator,bool> ret = wichtel.emplace(tokens[0], tokens[1]);
+		auto ret = wichtel.emplace(tokens[0], Wichtel(ids, tokens[0], tokens[1]));
 		if (!ret.second) {
 			cerr << "Duplicate Wichtel found at input line " << lineCounter << ": '" << line << "'" << endl;
 			continue;
+		}
+		// Increment the id *only* if the Wichtel has been successfully inserted
+		ids++;
+		// Found column 'conflicts'
+		if (tokens.size() > 2) {
+			stringstream ss(tokens[2]);
+			string temp;
+			while (getline(ss, temp, CONFLICT_DELIMITER)) {
+				ret.first->second.addConflict(temp);
+			}
 		}
 	}
 
 	return true;
 }
 
-static void printWichtel(set<Wichtel> wichtelVector) {
+static void printWichtel(map<string,Wichtel> wichtelVector) {
 	cout << "----------" << endl;
-	for (auto & wichtel : wichtelVector) {
-		cout << wichtel << endl;
+	for (auto & elem : wichtelVector) {
+		cout << elem.second << endl;
 	}
 	cout << "----------" << endl;
 }
@@ -127,8 +141,9 @@ static string pathToString(vector<int> &nodes) {
 	return ret;
 }
 
-static void printSol(set<Wichtel> &wichtelSet, vector<int> &path) {
-	vector<Wichtel> wichtelArr(wichtelSet.begin(), wichtelSet.end());
+static void printSol(map<string,Wichtel> &wichtelMap, vector<int> &path) {
+	vector<Wichtel> wichtelArr;(wichtelMap.begin(), wichtelMap.end());
+	std::for_each(wichtelMap.begin(), wichtelMap.end(), [&wichtelArr](const std::map<string,Wichtel>::value_type &p) { wichtelArr.push_back(p.second); });
 
 	if (debug) {
 		cout << "Path: " << pathToString(path) << endl;
@@ -152,7 +167,7 @@ static void reset(bool *visited, unsigned int size) {
 
 static void initGraph(bool *visited, bool **adjacent, unsigned int size) {
 	for (unsigned int i = 0; i < size; i++) {
-		adjacent[i] = new bool[wichtelSet.size()];
+		adjacent[i] = new bool[wichtelMap.size()];
 		for (unsigned int j = 0; j < size; j++) {
 			if (i == j) {
 				adjacent[i][j] = false;
@@ -162,6 +177,24 @@ static void initGraph(bool *visited, bool **adjacent, unsigned int size) {
 		}
 	}
 	reset(visited, size);
+	if (!ignoreConflicts) {
+		for (auto &elem : wichtelMap) {
+			for (auto conflict : elem.second.getConflicts()) {
+				auto it = wichtelMap.find(conflict);
+				if (it == wichtelMap.end()) {
+					cout << "Conflicting Wichtel not found: '" << conflict << "'" << endl;
+					continue;
+				}
+				adjacent[elem.second.getId()][it->second.getId()] = false;
+				adjacent[it->second.getId()][elem.second.getId()] = false;
+				if (debug) {
+					cout << "Deleting edges between '" << elem.second.getName() << "' and '" << it->second.getName() << "'" << endl;
+				}
+			}
+		}
+	} else {
+		cout << "Ignoring conflicts!" << endl;
+	}
 	if (debug) {
 		cout << "Adjacency matrix:" << endl;
 		cout << "  ";
@@ -191,17 +224,17 @@ static void initGraph(bool *visited, bool **adjacent, unsigned int size) {
 
 int main(int argc, const char *argv[]) {
 	int failed = 0;
+	vector<int> path;
 
-	if (!parseInput(wichtelSet, argc, argv)) {
+	if (!parseInput(wichtelMap, argc, argv, IDs)) {
 		return EXIT_FAILURE;
 	}
 
 	std::srand(unsigned(std::time(0)));
-	visited = new bool[wichtelSet.size()];
-	adjacent = new bool*[wichtelSet.size()];
-	initGraph(visited, adjacent, wichtelSet.size());
+	visited = new bool[wichtelMap.size()];
+	adjacent = new bool*[wichtelMap.size()];
+	initGraph(visited, adjacent, wichtelMap.size());
 
-	vector<int> path;
 	for (int i = 0; i < maxIter; i++) {
 		path.clear();;
 		reset(visited, wichtelMap.size());
@@ -213,9 +246,8 @@ int main(int argc, const char *argv[]) {
 				failed++;
 			}
 		}
-		string pathString = pathToString(path);
 		if (benchmark) {
-			auto ret = stats.emplace(pathString, 0);
+			auto ret = stats.emplace(pathToString(path), 0);
 			ret.first->second++;
 		}
 	}
@@ -226,12 +258,12 @@ int main(int argc, const char *argv[]) {
 			cout << "[" << x.first << ":" << x.second << "]" << endl;
 		}
 	} else {
-		printWichtel(wichtelSet);
-		printSol(wichtelSet, path);
+		printWichtel(wichtelMap);
+		printSol(wichtelMap, path);
 	}
 
 	delete visited;
-	for (unsigned int i = 0; i < wichtelSet.size(); i++) {
+	for (unsigned int i = 0; i < wichtelMap.size(); i++) {
 		delete adjacent[i];
 	}
 	delete adjacent;
