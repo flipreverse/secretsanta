@@ -255,8 +255,7 @@ int main(int argc, const char *argv[]) {
 			} else {
 				failed++;
 			}
-		}
-		if (benchmark) {
+		} else if (benchmark) {
 			auto ret = stats.emplace(pathToString(path), 0);
 			ret.first->second++;
 		}
