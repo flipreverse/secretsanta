@@ -7,12 +7,19 @@
 #include <cstdlib>
 #include <algorithm>
 #include <ctime>
+#include <cstring>
 #include "argparse.hpp"
 #include "wichtel.h"
+#include "quickmail.h"
 
 #define CSV_DELIMITER ';'
 #define CONFLICT_DELIMITER ','
 #define MAX_RETRY 1000
+#define BODY_FMT_STRING "Hallo %s,<br/><br/>"\
+			"der Wichtel-O-Mat hat Dir %s als Deinen Wichtel bestimmt.<br/><br/>"\
+			"Viele Gr&uuml;&szlig;e<br/>"\
+			"Dein Wichtel-O-Mat"
+#define BODY_MAX_LEN 300
 
 using namespace std;
 
@@ -23,6 +30,13 @@ bool **adjacent;
 bool benchmark = false;
 bool debug = false;
 bool ignoreConflicts = false;
+bool sendMail = false;
+string mailSubject = "Nachricht vom Wichtel-O-Mat";
+string mailSender;
+string mailServer;
+string mailUser;
+string mailPass;
+int mailPort = 25;
 int maxIter = 1;
 int IDs = 0;
 
@@ -33,6 +47,12 @@ static bool parseInput(map<string,Wichtel> &wichtel, int argc, const char *argv[
 	parser.addArgument("--benchmark", 1);
 	parser.addArgument("--debug");
 	parser.addArgument("--ignore-conflicts");
+	parser.addArgument("--send-email", 1);
+	parser.addArgument("--email-subject", 1);
+	parser.addArgument("--email-server", 1);
+	parser.addArgument("--email-port", 1);
+	parser.addArgument("--email-user", 1);
+	parser.addArgument("--email-pass", 1);
 	parser.addFinalArgument("fname");
 	parser.parse(argc, argv);
 	// Retrieve file name from cmdline
@@ -48,7 +68,30 @@ static bool parseInput(map<string,Wichtel> &wichtel, int argc, const char *argv[
 		}
 	}
 	debug = parser.exists("debug");
-	ignoreConflicts = parser.exists("ignore-conflicts");	
+	ignoreConflicts = parser.exists("ignore-conflicts");
+	if (parser.retrieve<string>("send-email").size() > 0) {
+		sendMail = true;
+		mailSender = parser.retrieve<string>("send-email");
+	}
+	if (parser.retrieve<string>("email-subject").size() > 0) {
+		mailSubject = parser.retrieve<string>("email-subject");
+	}
+	if (parser.retrieve<string>("email-server").size() > 0) {
+		mailServer = parser.retrieve<string>("email-server");
+	}
+	if (parser.retrieve<string>("email-port").size() > 0) {
+		mailPort = std::stoi(parser.retrieve<string>("email-port"));
+	}
+	if (parser.retrieve<string>("email-user").size() > 0) {
+		mailUser = parser.retrieve<string>("email-user");
+	}
+	if (parser.retrieve<string>("email-pass").size() > 0) {
+		mailPass = parser.retrieve<string>("email-pass");
+	}
+	if (sendMail && (mailServer.length() == 0 || mailPort <= 0)) {
+		cerr << parser.usage() << endl;
+		exit(EXIT_FAILURE);
+	}
 
 	string line;
 	// Open 'fname' for reading
@@ -151,10 +194,7 @@ static string pathToString(vector<int> &nodes) {
 	return ret;
 }
 
-static void printSol(map<string,Wichtel> &wichtelMap, vector<int> &path) {
-	vector<Wichtel> wichtelArr;(wichtelMap.begin(), wichtelMap.end());
-	std::for_each(wichtelMap.begin(), wichtelMap.end(), [&wichtelArr](const std::map<string,Wichtel>::value_type &p) { wichtelArr.push_back(p.second); });
-
+static void printSol(vector<Wichtel> &wichtelArr, vector<int> &path) {
 	if (debug) {
 		cout << "Path: " << pathToString(path) << endl;
 	}
@@ -232,6 +272,52 @@ static void initGraph(bool *visited, bool **adjacent, unsigned int size) {
 	}
 }
 
+static void notifyWichtel(vector<Wichtel> &wichtelArr, vector<int> &path, string subject) {
+	const char* errmsg;
+	char *body;
+	int len;
+
+	quickmail_initialize();
+	body = (char*)malloc(BODY_MAX_LEN);
+	if (body == NULL) {
+		cout << "Cannot allocate memory for email body!" << endl;
+		exit(EXIT_FAILURE);
+	}
+
+	for (unsigned int i = 0; i < (path.size() - 1); i++) {
+		Wichtel &srcWichtel = wichtelArr[path[i]];
+		Wichtel &dstWichtel = wichtelArr[path[i + 1]];
+		if (debug) {
+			cout << "====================" << endl;
+		}
+		quickmail mailobj = quickmail_create(mailSender.c_str(), subject.c_str());
+		quickmail_add_to(mailobj, srcWichtel.getEMail().c_str());
+		quickmail_add_header(mailobj, "Importance: Low");
+		quickmail_add_header(mailobj, "X-Priority: 5");
+		quickmail_add_header(mailobj, "X-MSMail-Priority: Low");
+		//quickmail_set_body(mailobj, "This is a test e-mail.\nThis mail was sent using libquickmail.");
+		len = snprintf(body, BODY_MAX_LEN, BODY_FMT_STRING, srcWichtel.getName().c_str(), dstWichtel.getName().c_str());
+		quickmail_add_body_memory(mailobj, "text/html", body, len, 0);
+		if (debug) {
+			quickmail_fsave(mailobj, stdout);
+			quickmail_set_debug_log(mailobj, stdout);
+		}
+		errmsg = quickmail_send(mailobj, mailServer.c_str(), mailPort, (mailUser.length() > 0 ? mailUser.c_str() : NULL), (mailPass.length() > 0 ? mailPass.c_str() : NULL));
+		if (errmsg != NULL) {
+			cout << "Error sending e-mail to " << srcWichtel.getName() << "(" << srcWichtel.getEMail() << "): " << errmsg << endl;
+		} else {
+			cout << "Successfully sent an e-mail to " << srcWichtel.getName() << "(" << srcWichtel.getEMail() << "). " << endl;
+		}
+		quickmail_destroy(mailobj);
+		if (debug) {
+			cout << "====================" << endl;
+		}
+	}
+
+	quickmail_cleanup();
+	free(body);
+}
+
 int main(int argc, const char *argv[]) {
 	int failed = 0;
 	vector<int> path;
@@ -267,8 +353,16 @@ int main(int argc, const char *argv[]) {
 			cout << "[" << x.first << ":" << x.second << "]" << endl;
 		}
 	} else {
-		printWichtel(wichtelMap);
-		printSol(wichtelMap, path);
+		vector<Wichtel> wichtelArr;
+		wichtelArr.resize(wichtelMap.size());
+		std::for_each(wichtelMap.begin(), wichtelMap.end(), [&wichtelArr](const std::map<string,Wichtel>::value_type &p) { wichtelArr[p.second.getId()] = p.second; });
+
+		if (sendMail) {
+			notifyWichtel(wichtelArr, path, mailSubject);
+		} else {
+			printWichtel(wichtelMap);
+			printSol(wichtelArr, path);
+		}
 	}
 
 	delete visited;

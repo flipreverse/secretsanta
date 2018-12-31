@@ -21,7 +21,7 @@ OUTPUT=
 endif
 
 SRC_CXX=wichteln.cc
-SRC_C=
+SRC_C=smtpsocket.c quickmail.c
 OBJ_CXX=$(SRC_CXX:%.cc=%.o)
 OBJ_C=$(SRC_C:%.c=%.o)
 OBJ=$(OBJ_C) $(OBJ_CXX)
@@ -37,7 +37,7 @@ CXX_FLAGS:= -O3 -Wall -Werror -c -g -std=c++11 $(INCLUDE_PATHS)
 CXX_DEP_FLAGS:= -O3 -std=c++11 $(INCLUDE_PATHS)
 LD:=gcc
 LD_FLAGS :=
-LD_LIBS :=
+LD_LIBS := -lcurl
 
 #***************************** DO NOT EDIT BELOW THIS LINE EXCEPT YOU WANT TO ADD A TEST APPLICATION (OR YOU KNOW WHAT YOU'RE DOING :-) )***************************** 
 DEP = $(subst .o,.d,$(OBJ))
