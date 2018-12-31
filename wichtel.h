@@ -5,36 +5,36 @@
 
 class Wichtel {
 private:
-	int id;
-	std::string name;
-	std::string email;
-	std::vector<std::string> conflicts;
+	int m_id;
+	std::string m_name;
+	std::string m_email;
+	std::vector<std::string> m_conflicts;
 
 public:
 	Wichtel (void) {
 
 	}
-	Wichtel(int id, std::string name, std::string email) {
-		this->id = id;
-		this->name = name;
-		this->email = email;
+	Wichtel(int m_id, std::string m_name, std::string m_email) {
+		this->m_id = m_id;
+		this->m_name = m_name;
+		this->m_email = m_email;
 	}
-	int getId(void) const { return this->id; }
-	std::string getName(void) const { return this->name; }
-	std::string getEMail(void) const { return this->email; }
-	void setName(std::string value) { this->name = value; }
-	void setEMail(std::string value) { this->email = value; }
-	void addConflict(std::string value) { this->conflicts.push_back(value); }
-	std::vector<std::string> getConflicts(void) const { return this->conflicts; }
+	int getId(void) const { return this->m_id; }
+	std::string getName(void) const { return this->m_name; }
+	std::string getEMail(void) const { return this->m_email; }
+	void setName(std::string value) { this->m_name = value; }
+	void setEMail(std::string value) { this->m_email = value; }
+	void addConflict(std::string value) { this->m_conflicts.push_back(value); }
+	std::vector<std::string> getConflicts(void) const { return this->m_conflicts; }
 	std::string toString(void) const {
 		std::string ret;
 
 		ret.append("Wichtel:\tID=" + std::to_string(this->getId()) + ", Name=" + this->getName() + ", E-Mail=" + this->getEMail());
-		if (!this->conflicts.empty()) {
+		if (!this->m_conflicts.empty()) {
 			ret.append(", Conflicts=");
-			for (unsigned int i = 0; i < this->conflicts.size(); i++) {
-				ret.append(this->conflicts[i]);
-				if (i < (this->conflicts.size() - 1)) {
+			for (unsigned int i = 0; i < this->m_conflicts.size(); i++) {
+				ret.append(this->m_conflicts[i]);
+				if (i < (this->m_conflicts.size() - 1)) {
 					ret.append(",");
 				}
 			}
