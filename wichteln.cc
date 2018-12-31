@@ -115,10 +115,17 @@ static bool calcSol(bool *visited, bool **adjacent, unsigned int size, vector<in
 			visited[next_node] = true;
 			path.push_back(next_node);
 			node = next_node;
+		} else if (visited[next_node] && adjacent[node][next_node] && 
+			   next_node == path.front() && path.size() == size) {
+			// We have visited next_node *and* there is an edge between node and next_node.
+			// Moreover, next_node corresponds to the first node on the path, and
+			// we've already visited all other nodes.
+			path.push_back(next_node);
+			break;
 		} else {
 			i++;
 		}
-	} while (path.size() < size && i < MAX_RETRY);
+	} while (i < MAX_RETRY);
 	if (i == MAX_RETRY) {
 		// Fill the remaining gaps with dummy values (-1)
 		// Add one more because a full cycle contains #nodes+1 nodes
@@ -127,8 +134,6 @@ static bool calcSol(bool *visited, bool **adjacent, unsigned int size, vector<in
 		}
 		return false;
 	} else {
-		// Make it a full cycle
-		path.push_back(path.front());
 		return true;
 	}
 }
