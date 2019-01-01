@@ -26,7 +26,7 @@ OBJ_CXX=$(SRC_CXX:%.cc=%.o)
 OBJ_C=$(SRC_C:%.c=%.o)
 OBJ=$(OBJ_C) $(OBJ_CXX)
 
-WICHTELN_BIN=wichteln
+WICHTELOMAT_BIN=wichtelomat
 
 #***************************** COMMANDS AND FLAGS *****************************
 # COMPILER AND LINKER FLAGS
@@ -42,13 +42,13 @@ LD_LIBS := -lcurl
 #***************************** DO NOT EDIT BELOW THIS LINE EXCEPT YOU WANT TO ADD A TEST APPLICATION (OR YOU KNOW WHAT YOU'RE DOING :-) )***************************** 
 DEP = $(subst .o,.d,$(OBJ))
 
-all: $(DEP) $(WICHTELN_BIN)
+all: $(DEP) $(WICHTELOMAT_BIN)
 
 echo:
 	@echo $(DEP)
 	@echo $(OBJ)
 
-$(WICHTELN_BIN): $(OBJ)
+$(WICHTELOMAT_BIN): $(OBJ)
 	@echo $(LD_TEXT)
 	$(OUTPUT)$(CXX) $^ $(LD_FLAGS)  $(LD_LIBS) -o $@
 
