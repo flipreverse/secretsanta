@@ -19,6 +19,8 @@ Phil;phil@doe.com;John
 James;james@doe.com;John
 ```
 The file must *not* include a header. The `conflicts` column is a CSV-separated list of `name`s.
+Wichtel-O-Mat ensures that two participants are **not** assigned to each other. Moreover, it tries to find a solution 
+that all assignments form a cycle, e.g. A-->B-->C-->A.
 In addition to the input file the Wichtel-O-Mat accepts the following parameters:
 ```
 --debug                     Enables debug output
