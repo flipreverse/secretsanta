@@ -67,8 +67,8 @@ static bool parseInput(map<string,Wichtel> &wichtel, int argc, const char *argv[
 			exit(EXIT_FAILURE);
 		}
 	}
-	debug = parser.exists("debug");
-	ignoreConflicts = parser.exists("ignore-conflicts");
+	debug = parser.retrieve<string>("debug") == "true" ;
+	ignoreConflicts = parser.retrieve<string>("ignore-conflicts") == "true";
 	if (parser.retrieve<string>("send-email").size() > 0) {
 		sendMail = true;
 		mailSender = parser.retrieve<string>("send-email");
