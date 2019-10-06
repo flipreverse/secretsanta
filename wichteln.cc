@@ -297,7 +297,7 @@ static void notifyWichtel(vector<Wichtel> &wichtelArr, vector<int> &path, string
 		quickmail_add_header(mailobj, "X-MSMail-Priority: Low");
 		//quickmail_set_body(mailobj, "This is a test e-mail.\nThis mail was sent using libquickmail.");
 		len = snprintf(body, BODY_MAX_LEN, BODY_FMT_STRING, srcWichtel.getName().c_str(), dstWichtel.getName().c_str());
-		quickmail_add_body_memory(mailobj, "text/html", body, len, 0);
+		quickmail_add_body_memory(mailobj, "text/plain; charset=UTF-8", body, len, 0);
 		if (debug) {
 			quickmail_fsave(mailobj, stdout);
 			quickmail_set_debug_log(mailobj, stdout);
