@@ -15,10 +15,18 @@
 #define CSV_DELIMITER ';'
 #define CONFLICT_DELIMITER ','
 #define MAX_RETRY 1000
-#define BODY_FMT_STRING "Hallo %s,<br/><br/>"\
-			"der Wichtel-O-Mat hat Dir %s als Deinen Wichtel bestimmt.<br/><br/>"\
-			"Viele Gr&uuml;&szlig;e<br/>"\
-			"Dein Wichtel-O-Mat"
+#define BODY_FMT_STRING "Hallo %s,\n\n"\
+			"der Wichtel-O-Mat hat Dir %s als Deinen Wichtel bestimmt.\n\n"\
+			"Viele Grüße\n"\
+			"Dein Wichtel-O-Mat\n"\
+			"      *\n"\
+			"     /.\\\n"\
+			"    /..'\\\n"\
+			"    /'.'\\\n"\
+			"   /.''.'\\\n"\
+			"   /.'.'.\\\n"\
+			"  /'.''.'.\\\n"\
+			"  ^^^[_]^^^"
 #define BODY_MAX_LEN 300
 
 using namespace std;
