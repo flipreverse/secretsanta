@@ -14,6 +14,7 @@
 
 #define CSV_DELIMITER ';'
 #define CONFLICT_DELIMITER ','
+#define MAIL_DELIMITER ','
 #define MAX_RETRY 1000
 #define BODY_FMT_STRING "Hallo %s,\n\n"\
 			"der Wichtel-O-Mat hat Dir %s als Deinen Wichtel bestimmt.\n\n"\
@@ -114,6 +115,7 @@ static bool parseInput(map<string,Wichtel> &wichtel, int argc, const char *argv[
 		lineCounter++;
 		stringstream ss(line);
 		vector<string> tokens;
+		vector<string> emails;
 		string temp;
 		// Tokenize each line by comma
 		while (getline(ss, temp, CSV_DELIMITER)) {
@@ -124,7 +126,12 @@ static bool parseInput(map<string,Wichtel> &wichtel, int argc, const char *argv[
 			cerr << "Argument contains to many tokens: " << line << endl;
 			continue;
 		}
-		auto ret = wichtel.emplace(tokens[0], Wichtel(ids, tokens[0], tokens[1]));
+		ss.clear(); ss.str("");
+		ss << tokens[1];
+		while (getline(ss, temp, MAIL_DELIMITER)) {
+			emails.push_back(temp);
+		}
+		auto ret = wichtel.emplace(tokens[0], Wichtel(ids, tokens[0], emails));
 		if (!ret.second) {
 			cerr << "Duplicate Wichtel found at input line " << lineCounter << ": '" << line << "'" << endl;
 			continue;
@@ -299,7 +306,9 @@ static void notifyWichtel(vector<Wichtel> &wichtelArr, vector<int> &path, string
 			cout << "====================" << endl;
 		}
 		quickmail mailobj = quickmail_create(mailSender.c_str(), subject.c_str());
-		quickmail_add_to(mailobj, srcWichtel.getEMail().c_str());
+		for (auto email : srcWichtel.getEMails()) {
+			quickmail_add_to(mailobj, email.c_str());
+		}
 		quickmail_add_header(mailobj, "Importance: Low");
 		quickmail_add_header(mailobj, "X-Priority: 5");
 		quickmail_add_header(mailobj, "X-MSMail-Priority: Low");
@@ -312,10 +321,19 @@ static void notifyWichtel(vector<Wichtel> &wichtelArr, vector<int> &path, string
 		}
 		errmsg = quickmail_send(mailobj, mailServer.c_str(), mailPort, (mailUser.length() > 0 ? mailUser.c_str() : NULL), (mailPass.length() > 0 ? mailPass.c_str() : NULL));
 		if (errmsg != NULL) {
-			cout << "Error sending e-mail to " << srcWichtel.getName() << "(" << srcWichtel.getEMail() << "): " << errmsg << endl;
+			cout << "Error sending e-mail to ";
 		} else {
-			cout << "Successfully sent an e-mail to " << srcWichtel.getName() << "(" << srcWichtel.getEMail() << "). " << endl;
+			cout << "Successfully sent an e-mail to ";
 		}
+		cout  << srcWichtel.getName() << "(";
+		for (unsigned int i = 0; i < srcWichtel.getEMails().size(); i++) {
+			cout << srcWichtel.getEMails()[i];
+			if (i < (srcWichtel.getEMails().size() - 1)) {
+				cout << ",";
+			}
+		}
+		cout << "). " << endl;
+
 		quickmail_destroy(mailobj);
 		if (debug) {
 			cout << "====================" << endl;
